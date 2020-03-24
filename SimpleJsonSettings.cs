@@ -7,6 +7,21 @@ using Newtonsoft.Json.Linq;
 
 namespace TylorsTech.SimpleJsonSettings
 {
+    public class NotInitializedException : Exception
+    {
+        public NotInitializedException(string message) : base(message)
+        {
+        }
+
+        public NotInitializedException(string message, Exception innerException) : base(message, innerException)
+        {
+        }
+
+        public NotInitializedException()
+        {
+        }
+    }
+
     public static class SettingsManager
     {
         private static bool _hasBeenInitialized = false;
@@ -26,25 +41,39 @@ namespace TylorsTech.SimpleJsonSettings
         /// </summary>
         /// <param name="fileName">Name of file stored in the settings directory.</param>
         /// <param name="throwOnFail">True to throw an exception on failure; false to return an empty SettingsFile.</param>
-        /// <returns></returns>
         public static async Task<SettingsFile> LoadAsync(string fileName, bool throwOnFail = false)
         {
+            if (!_hasBeenInitialized)
+                throw new NotInitializedException("Library has not been initialized!");
+
             var filePath = Path.Combine(_settingsDirectory, fileName);
             var fileExists = File.Exists(filePath);
 
             if (!fileExists && throwOnFail)
                 throw new FileNotFoundException($"No settings file was located at path: {filePath}");
+
             if (!fileExists)
                 return new SettingsFile();
 
-            using (var fileReader = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true))
-            {
-                var settingsFile = new SettingsFile();
-                settingsFile.ParsedObject = JObject.Parse(await ReadTextAsync(filePath));
-                return settingsFile;
-            }
+            var settingsFile = new SettingsFile { ParsedObject = JObject.Parse(await ReadTextAsync(filePath)) };
+            return settingsFile;
         }
 
+        public static Task SaveAsync(string fileName, SettingsFile file)
+        {
+            if (!_hasBeenInitialized)
+                throw new NotInitializedException("Library has not been initialized!");
+
+            var filePath = Path.Combine(_settingsDirectory, fileName);
+            if (file == null)
+                throw new ArgumentNullException(nameof(file));
+            return WriteTextAsync(filePath, file.ParsedObject.ToString(Formatting.Indented));
+        }
+
+        /// <summary>
+        /// Reads text from a file asynchronously.
+        /// </summary>
+        /// <param name="filePath">Path to file</param>
         private static async Task<string> ReadTextAsync(string filePath)
         {
             using (var sourceStream = new FileStream(filePath,
@@ -64,6 +93,12 @@ namespace TylorsTech.SimpleJsonSettings
                 return sb.ToString();
             }
         }
+
+        /// <summary>
+        /// Writes text to a file asynchronously.
+        /// </summary>
+        /// <param name="filePath">Path to file</param>
+        /// <param name="text">Text to write</param>
         private static async Task WriteTextAsync(string filePath, string text)
         {
             var encodedText = Encoding.Unicode.GetBytes(text);
@@ -81,8 +116,13 @@ namespace TylorsTech.SimpleJsonSettings
     {
         internal JObject ParsedObject;
 
-        public T GetSetting<T>(string key)
+        public T GetSetting<T>(string key) => GetSetting<T>(key, default(T));
+
+        public T GetSetting<T>(string key, T defaultValue)
         {
+            if (!ParsedObject.ContainsKey(key))
+                return defaultValue;
+
             return ParsedObject.GetValue(key).ToObject<T>();
         }
 
