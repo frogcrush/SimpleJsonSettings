@@ -16,7 +16,7 @@ namespace TylorsTech.SimpleJsonSettings
     {
         public abstract class BaseSettingsFile
         {
-            internal JObject ParsedObject;
+            internal JObject ParsedObject = new JObject();
             internal string _fileLocation;
 
             public object this[string key]
@@ -36,6 +36,8 @@ namespace TylorsTech.SimpleJsonSettings
                 ParsedObject[key] = JToken.FromObject(value);
             }
 
+            public bool ContainsKey(string key) => ParsedObject.ContainsKey(key);
+
             protected BaseSettingsFile(string fileLocation)
             {
                 this._fileLocation = fileLocation;
@@ -47,12 +49,14 @@ namespace TylorsTech.SimpleJsonSettings
                     Directory.CreateDirectory(folderPath);
             }
 
+            public bool Exists() => File.Exists(_fileLocation);
+
             /// <summary>
             /// Loads a SettingsFile from a specified location.
             /// </summary>
             /// <param name="fileName">Path to settings file</param>
             /// <param name="throwOnFail">True to throw an exception on failure; false to return an empty SettingsFile.</param>
-            public async Task<bool> LoadAsync(bool throwOnFail = false)
+            public bool Load(bool throwOnFail = false)
             {
                 var fileExists = File.Exists(_fileLocation);
 
@@ -62,13 +66,14 @@ namespace TylorsTech.SimpleJsonSettings
                 if (!fileExists)
                     return false;
 
-                ParsedObject = JObject.Parse(await ReadTextAsync(_fileLocation));
+                var text = File.ReadAllText(_fileLocation);
+                ParsedObject = JObject.Parse(text);
                 return true;
             }
-
-            public Task SaveAsync()
+            
+            public void Save()
             {
-                return WriteTextAsync(_fileLocation, ParsedObject.ToString(Formatting.Indented));
+                File.WriteAllText(_fileLocation, ParsedObject.ToString(Formatting.Indented));
             }
 
             /// <summary>
@@ -105,7 +110,7 @@ namespace TylorsTech.SimpleJsonSettings
                 var encodedText = Encoding.Unicode.GetBytes(text);
 
                 using (var sourceStream = new FileStream(filePath,
-                    FileMode.Append, FileAccess.Write, FileShare.None,
+                    FileMode.Create, FileAccess.Write, FileShare.None,
                     bufferSize: 4096, useAsync: true))
                 {
                     await sourceStream.WriteAsync(encodedText, 0, encodedText.Length);
@@ -176,31 +181,74 @@ namespace TylorsTech.SimpleJsonSettings
 
         internal SettingsFileBuilder() { }
 
+        /// <summary>
+        /// Creates a SettingsFile object for a specified JSON file path. Does not load data.
+        /// </summary>
+        /// <param name="filePath">Path to JSON file, which may not exist</param>
         public static SettingsFileBuilder FromFile(string filePath)
         {
             var value = new SettingsFileBuilder
             {
                 _value = new SettingsFile(filePath)
             };
+            
             return value;
         }
 
+        /// <summary>
+        /// Loads the SettingsFile from the file, failing silently if it does not exist.
+        /// If you do not want to load failing silently, use <see cref="SettingsFile.Load"/>
+        /// </summary>
+        /// <returns></returns>
+        public SettingsFileBuilder LoadIfExists()
+        {
+            _value.Load();
+            return this;
+        }
+
+        /// <summary>
+        /// Specify a default value for a given key
+        /// </summary>
         public SettingsFileBuilder WithDefault(string key, JToken token)
         {
             _value.AddDefaultValue(key, token);
             return this;
         }
 
+        /// <summary>
+        /// Specify multiple default values
+        /// </summary>
         public SettingsFileBuilder WithDefaults(IEnumerable<KeyValuePair<string, JToken>> defaultValues)
         {
             foreach (var item in defaultValues)
                 _value.AddDefaultValue(item.Key, item.Value);
             return this;
         }
+
+        /// <summary>
+        /// Specify multiple default values
+        /// </summary>
         public SettingsFileBuilder WithDefaults(IEnumerable<KeyValuePair<string, object>> defaultValues)
         {
             foreach (var item in defaultValues)
                 _value.AddDefaultValue(item.Key, JToken.FromObject(item.Value));
+            return this;
+        }
+        
+        /// <summary>
+        /// Ensure the relevant JSON file gets created.
+        /// </summary>
+        /// <param name="useDefaultValues">Write default values to file?</param>
+        /// <returns></returns>
+        public SettingsFileBuilder EnsureCreated(bool useDefaultValues = false)
+        {
+            if (!File.Exists(_value._fileLocation) && useDefaultValues)
+            {
+                foreach (var defaultValue in _value.DefaultValues.Where(defaultValue => !_value.ContainsKey(defaultValue.Key))) //don't overwrite existing settings
+                    _value.SetSetting(defaultValue.Key, defaultValue.Value);
+            }
+            
+            _value.Save();
             return this;
         }
 
