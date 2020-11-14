@@ -3,18 +3,41 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+
+using TylorsTech.SimpleJsonSettings;
 using TylorsTech.SimpleJsonSettings.Internal;
 
 namespace TylorsTech.SimpleJsonSettings
-{ 
+{
     namespace Internal
     {
-        public abstract class BaseSettingsFile
+        public interface ISettingsFileBase
+        {
+            bool Exists();
+            void Save();
+        }
+
+        public interface IKeyValueSettingsFileBase : ISettingsFileBase
+        {
+            T GetSetting<T>(string key);
+            string GetString(string key);
+            bool GetBool(string key);
+
+            //Setters
+            void SetSetting(string key, object value);
+            void SetSetting(string key, JToken value);
+
+            bool ContainsKey(string key);
+            bool Load(bool throwOnFail = false);
+        }
+
+        public abstract class BaseKeyValueSettingsFile : IKeyValueSettingsFileBase
         {
             internal JObject ParsedObject = new JObject();
             internal string _fileLocation;
@@ -31,19 +54,22 @@ namespace TylorsTech.SimpleJsonSettings
 
             public virtual bool GetBool(string key) => GetSetting<bool>(key);
 
-            public virtual void SetSetting(string key, object value)
+            public virtual void SetSetting(string key, JToken value)
             {
-                ParsedObject[key] = JToken.FromObject(value);
+                ParsedObject[key] = value;
             }
+
+            public virtual void SetSetting(string key, object value) =>
+                SetSetting(key, JToken.FromObject(value));
 
             public bool ContainsKey(string key) => ParsedObject.ContainsKey(key);
 
-            protected BaseSettingsFile(string fileLocation)
+            protected BaseKeyValueSettingsFile(string fileLocation)
             {
                 this._fileLocation = fileLocation;
             }
 
-            protected BaseSettingsFile(string folderPath, string fileName) : this(Path.Combine(folderPath, fileName))
+            protected BaseKeyValueSettingsFile(string folderPath, string fileName) : this(Path.Combine(folderPath, fileName))
             {
                 if (!Directory.Exists(folderPath))
                     Directory.CreateDirectory(folderPath);
@@ -70,7 +96,7 @@ namespace TylorsTech.SimpleJsonSettings
                 ParsedObject = JObject.Parse(text);
                 return true;
             }
-            
+
             public void Save()
             {
                 File.WriteAllText(_fileLocation, ParsedObject.ToString(Formatting.Indented));
@@ -119,7 +145,10 @@ namespace TylorsTech.SimpleJsonSettings
         }
     }
 
-    public class BasicSettingsFile : BaseSettingsFile
+    /// <summary>
+    /// A simple settings file, without additional helper methods or default values. 
+    /// </summary>
+    public class BasicSettingsFile : BaseKeyValueSettingsFile
     {
         public override T GetSetting<T>(string key) => GetSetting<T>(key, default(T));
 
@@ -140,7 +169,10 @@ namespace TylorsTech.SimpleJsonSettings
         }
     }
 
-    public class SettingsFile : BaseSettingsFile
+    /// <summary>
+    /// A slightly more advanced settings file, with default value support
+    /// </summary>
+    public class KeyValueSettingsFile : BaseKeyValueSettingsFile, ISettingsFile
     {
         internal Dictionary<string, JToken> DefaultValues { get; } = new Dictionary<string, JToken>();
 
@@ -163,33 +195,41 @@ namespace TylorsTech.SimpleJsonSettings
         public void AddDefaultValue(string key, object value) => AddDefaultValue(key, JToken.FromObject(value));
 
         public void RemoveDefaultValue(string key) => DefaultValues.Remove(key);
-        
-        public SettingsFile(string fileLocation) : base(fileLocation)
+
+        public KeyValueSettingsFile(string fileLocation) : base(fileLocation)
         {
         }
 
-        public SettingsFile(string folderPath, string fileName) : base(folderPath, fileName)
+        public KeyValueSettingsFile(string folderPath, string fileName) : base(folderPath, fileName)
         {
         }
-
-        public static SettingsFileBuilder FromFile(string filePath) => SettingsFileBuilder.FromFile(filePath);
     }
 
-    public class SettingsFileBuilder
+    public interface ISettingsFile : IKeyValueSettingsFileBase
     {
-        private SettingsFile _value;
+        void AddDefaultValue(string key, JToken value);
+        void AddDefaultValue(string key, object value);
+        void RemoveDefaultValue(string key);
 
-        internal SettingsFileBuilder() { }
+    }
+
+    public class KeyValueSettingsFileBuilder : KeyValueSettingsFileBuilder<KeyValueSettingsFile> {}
+
+    public class KeyValueSettingsFileBuilder<TsettingsType> where TsettingsType : KeyValueSettingsFile
+    {
+        private TsettingsType _value;
+
+        internal KeyValueSettingsFileBuilder() { }
 
         /// <summary>
         /// Creates a SettingsFile object for a specified JSON file path. Does not load data.
         /// </summary>
         /// <param name="filePath">Path to JSON file, which may not exist</param>
-        public static SettingsFileBuilder FromFile(string filePath)
+        public static KeyValueSettingsFileBuilder<TsettingsType> FromFile(string filePath)
         {
-            var value = new SettingsFileBuilder
+            var value = new KeyValueSettingsFileBuilder<TsettingsType>
             {
-                _value = new SettingsFile(filePath)
+                _value = (TsettingsType)Activator.CreateInstance(typeof(TsettingsType), filePath)
             };
             
             return value;
@@ -197,10 +237,10 @@ namespace TylorsTech.SimpleJsonSettings
 
         /// <summary>
         /// Loads the SettingsFile from the file, failing silently if it does not exist.
-        /// If you do not want to load failing silently, use <see cref="SettingsFile.Load"/>
+        /// If you do not want to load failing silently, use <see cref="KeyValueSettingsFile.Load"/>
         /// </summary>
         /// <returns></returns>
-        public SettingsFileBuilder LoadIfExists()
+        public KeyValueSettingsFileBuilder<TsettingsType> LoadIfExists()
         {
             _value.Load();
             return this;
@@ -209,16 +249,22 @@ namespace TylorsTech.SimpleJsonSettings
         /// <summary>
         /// Specify a default value for a given key
         /// </summary>
-        public SettingsFileBuilder WithDefault(string key, JToken token)
+        public KeyValueSettingsFileBuilder<TsettingsType> WithDefault(string key, JToken token)
         {
             _value.AddDefaultValue(key, token);
             return this;
         }
 
+        public KeyValueSettingsFileBuilder<TsettingsType> WithDefault<TValue>(string key, TValue value) => WithDefault(key, JToken.FromObject(value));
+
+        public KeyValueSettingsFileBuilder<TsettingsType> WithDefault(string key, string value) => WithDefault<string>(key, value);
+
+        public KeyValueSettingsFileBuilder<TsettingsType> WithDefault(string key, bool value) => WithDefault<bool>(key, value);
+
         /// <summary>
         /// Specify multiple default values
         /// </summary>
-        public SettingsFileBuilder WithDefaults(IEnumerable<KeyValuePair<string, JToken>> defaultValues)
+        public KeyValueSettingsFileBuilder<TsettingsType> WithDefaults(IEnumerable<KeyValuePair<string, JToken>> defaultValues)
         {
             foreach (var item in defaultValues)
                 _value.AddDefaultValue(item.Key, item.Value);
@@ -228,7 +274,7 @@ namespace TylorsTech.SimpleJsonSettings
         /// <summary>
         /// Specify multiple default values
         /// </summary>
-        public SettingsFileBuilder WithDefaults(IEnumerable<KeyValuePair<string, object>> defaultValues)
+        public KeyValueSettingsFileBuilder<TsettingsType> WithDefaults(IEnumerable<KeyValuePair<string, object>> defaultValues)
         {
             foreach (var item in defaultValues)
                 _value.AddDefaultValue(item.Key, JToken.FromObject(item.Value));
@@ -240,7 +286,7 @@ namespace TylorsTech.SimpleJsonSettings
         /// </summary>
         /// <param name="useDefaultValues">Write default values to file?</param>
         /// <returns></returns>
-        public SettingsFileBuilder EnsureCreated(bool useDefaultValues = false)
+        public KeyValueSettingsFileBuilder<TsettingsType> EnsureCreated(bool useDefaultValues = false)
         {
             if (!File.Exists(_value._fileLocation) && useDefaultValues)
             {
@@ -252,7 +298,9 @@ namespace TylorsTech.SimpleJsonSettings
             return this;
         }
 
-        public SettingsFile Create()
+        public KeyValueSettingsFileBuilder<TsettingsType> LoadOrCreate() => LoadIfExists().EnsureCreated();
+
+        public TsettingsType Build()
         {
             return _value;
         }

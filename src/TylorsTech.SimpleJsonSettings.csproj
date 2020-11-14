@@ -7,13 +7,15 @@
     <Authors>Tylor Pater</Authors>
     <Company>Tylor's Tech</Company>
     <Description>Provides an extremely simple way to save settings as JSON.</Description>
-    <Copyright>2020 Tylor Pater</Copyright>
+    <Copyright>(C) 2020 Tylor Pater</Copyright>
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
-    <PackageProjectUrl>https://tylorstech.com</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/frogcrush/SimpleJsonSettings</PackageProjectUrl>
     <RepositoryUrl>https://github.com/frogcrush/SimpleJsonSettings</RepositoryUrl>
     <RepositoryType>GitHub</RepositoryType>
-    <PackageReleaseNotes>Bugfixes</PackageReleaseNotes>
-    <Version>1.0.6-alpha</Version>
+    <PackageReleaseNotes>Create a strongly typed version, which is super handy in certain cases. 
+
+Note that the API of the KeyValueSettings is likely to change in upcoming releases to align the API.</PackageReleaseNotes>
+    <Version>1.0.11-alpha</Version>
   </PropertyGroup>
 
   <ItemGroup>
