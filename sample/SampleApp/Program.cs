@@ -9,13 +9,13 @@ namespace SampleApp
 {
     class Program
     {     
-        public void Main()
+        public static void Main()
         {
             CreateKeyValueSettings();
             CreateStronglyTypedSettings();
         }
 
-        public void CreateKeyValueSettings()
+        public static void CreateKeyValueSettings()
         {
             // Create a new KeyValueSettingsFile with default values
             var settingsBuilder = KeyValueSettingsFileBuilder.FromFile(Path.Combine(Environment.CurrentDirectory, "settings.json"))
@@ -41,7 +41,7 @@ namespace SampleApp
             settings.Save();
         }
 
-        public void CreateStronglyTypedSettings()
+        public static void CreateStronglyTypedSettings()
         {
             var settingsBuilder = StronglyTypedSettingsFileBuilder<ExampleSettingsDefinition>
                 .FromFile(Environment.CurrentDirectory, "ExampleSettings.json"); // Overloaded to call Path.Combine() internally

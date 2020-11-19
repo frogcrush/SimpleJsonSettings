@@ -18,6 +18,9 @@ namespace TylorsTech.SimpleJsonSettings
 
         [JsonIgnore]
         protected internal JsonSerializerSettings _serializerSettings;
+
+        [JsonIgnore]
+        protected internal Encoding _encoding;
         
         public virtual bool Exists()
         {
@@ -26,7 +29,7 @@ namespace TylorsTech.SimpleJsonSettings
 
         public virtual void Save()
         {
-            File.WriteAllText(_fileLocation, JsonConvert.SerializeObject(this, _serializerSettings));
+            File.WriteAllText(_fileLocation, JsonConvert.SerializeObject(this, _serializerSettings), _encoding);
         }
     }
 
@@ -36,6 +39,7 @@ namespace TylorsTech.SimpleJsonSettings
         private string _fileLocation;
 
         private SettingsFileNotFoundBehavior _notFoundBehavior = SettingsFileNotFoundBehavior.ReturnNull;
+        private Encoding _encoding;
                 
         public StronglyTypedSettingsFileBuilder()
         {
@@ -76,6 +80,12 @@ namespace TylorsTech.SimpleJsonSettings
         public StronglyTypedSettingsFileBuilder<TSettingsType> WithDefaultNullValueHandling(NullValueHandling value)
         {
             _serializerSettings.NullValueHandling = value;
+            return this;
+        }
+
+        public StronglyTypedSettingsFileBuilder<TSettingsType> WithEncoding(Encoding encoding)
+        {
+            _encoding = encoding;
             return this;
         }
 
@@ -144,7 +154,7 @@ namespace TylorsTech.SimpleJsonSettings
                 }
             }
 
-            var obj = JsonConvert.DeserializeObject<TSettingsType>(File.ReadAllText(_fileLocation), _serializerSettings);
+            var obj = JsonConvert.DeserializeObject<TSettingsType>(File.ReadAllText(_fileLocation, _encoding ?? Encoding.UTF8), _serializerSettings);
             obj._fileLocation = _fileLocation;
             obj._serializerSettings = _serializerSettings;
             return obj;

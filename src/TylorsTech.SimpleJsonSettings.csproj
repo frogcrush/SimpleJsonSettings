@@ -12,10 +12,8 @@
     <PackageProjectUrl>https://github.com/frogcrush/SimpleJsonSettings</PackageProjectUrl>
     <RepositoryUrl>https://github.com/frogcrush/SimpleJsonSettings</RepositoryUrl>
     <RepositoryType>GitHub</RepositoryType>
-    <PackageReleaseNotes>Create a strongly typed version, which is super handy in certain cases. 
-
-Note that the API of the KeyValueSettings is likely to change in upcoming releases to align the API.</PackageReleaseNotes>
-    <Version>1.0.11-alpha</Version>
+    <PackageReleaseNotes>Update to allow specifying encoding to use. Now defaults to UTF8 for cross-platform compatibility; this may break your existing settings unless you to specify Unicode manually.</PackageReleaseNotes>
+    <Version>1.0.12-alpha</Version>
   </PropertyGroup>
 
   <ItemGroup>
