@@ -20,7 +20,7 @@ namespace TylorsTech.SimpleJsonSettings
         protected internal JsonSerializerSettings _serializerSettings;
 
         [JsonIgnore]
-        protected internal Encoding _encoding;
+        protected internal Encoding _encoding = Encoding.UTF8;
         
         public virtual bool Exists()
         {
@@ -144,26 +144,40 @@ namespace TylorsTech.SimpleJsonSettings
         {
             if (!File.Exists(_fileLocation))
             {
-                if (_notFoundBehavior == SettingsFileNotFoundBehavior.ReturnDefault)
-                {
-                    return CreateDefault();
-                }
-                else
+                if (_notFoundBehavior == SettingsFileNotFoundBehavior.ReturnNull)
                 {
                     return null;
                 }
+
+                var tmp = CreateDefault();
+                if (_notFoundBehavior == SettingsFileNotFoundBehavior.CreateDefault)
+                    tmp.Save();
+                return tmp;                
             }
 
             var obj = JsonConvert.DeserializeObject<TSettingsType>(File.ReadAllText(_fileLocation, _encoding ?? Encoding.UTF8), _serializerSettings);
             obj._fileLocation = _fileLocation;
             obj._serializerSettings = _serializerSettings;
+            obj._encoding = _encoding;
             return obj;
         }
     }
 
     public enum SettingsFileNotFoundBehavior
     {
+        /// <summary>
+        /// Return null.
+        /// </summary>
         ReturnNull,
-        ReturnDefault
+
+        /// <summary>
+        /// Return an object populated with default values.
+        /// </summary>
+        ReturnDefault,
+
+        /// <summary>
+        /// Create the file locally, using default values. Also return a default version.
+        /// </summary>
+        CreateDefault
     }
 }

@@ -13,7 +13,7 @@
     <RepositoryUrl>https://github.com/frogcrush/SimpleJsonSettings</RepositoryUrl>
     <RepositoryType>GitHub</RepositoryType>
     <PackageReleaseNotes>Update to allow specifying encoding to use. Now defaults to UTF8 for cross-platform compatibility; this may break your existing settings unless you to specify Unicode manually.</PackageReleaseNotes>
-    <Version>1.0.12-alpha</Version>
+    <Version>1.0.13-alpha</Version>
   </PropertyGroup>
 
   <ItemGroup>
